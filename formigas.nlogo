@@ -1,6 +1,7 @@
 globals [
   sky-color
   ground-color
+  dug-color
   to-dig-color
   ants-num
   ants-stride
@@ -8,14 +9,15 @@ globals [
   max-ticks
 ]
 
-patches-own [ ground? to-dig? ]
-turtles-own [ on-top? time-direction carrying? find-to-dig? ]
+patches-own [ ground? to-dig? dug? ]
+turtles-own [ on-top? time-direction carrying? found-to-dig? time-to-start-dig ]
 breed [ ants ant ] ;; turtles that are ants
 
 to setup
   clear-all
   set sky-color blue
   set ground-color brown
+  set dug-color 33
   set to-dig-color 46
   set ants-num 10
   set ants-stride 0.3
@@ -36,12 +38,13 @@ end
 
 to set-ground
   set ground? ifelse-value ( pycor < ground-top ) [true] [false]
+  set dug? false
 end
 
 to set-to-dig
   set to-dig? false
   if ground? [
-    set to-dig? ifelse-value ( random 10 <= 2 ) [true] [false]
+    set to-dig? ifelse-value ( random 100 <= 2 ) [true] [false]
   ]
 end
 
@@ -55,8 +58,9 @@ to setup-ants
   add-ants-on-ground-top
   set-default-shape turtles "bug"
   ask turtles [
-    set find-to-dig? false
+    set found-to-dig? false
     set carrying? false
+    set time-to-start-dig random 100
   ]
 end
 
@@ -78,43 +82,77 @@ to move
   if on-top? [
     move-horizontaly
   ]
-  if not carrying? [
-    find-to-dig-and-open-hole
+  ifelse not carrying? [
+    search-to-dig
+    ifelse found-to-dig? [ dig ][ open-to-dig ]
+  ][
+    back-to-nest
+  ]
+  wiggle
+end
+
+to wiggle
+  if pcolor = dug-color or on-top? [
+    if not on-top? [
+      rt random 30
+      lt random 30
+    ]
+    fd ants-stride
   ]
   set time-direction time-direction - 1
 end
 
 to move-horizontaly
-  if ( time-direction = 0 ) [
+  if (time-direction = 0) [
     set heading ifelse-value (random 2 < 1) [90][270]
-    set time-direction random 10
+    set time-direction random 50
   ]
-  fd ants-stride
 end
 
-to find-to-dig-and-open-hole
-  ask patch-here [
+to search-to-dig
+  ask patch-at-heading-and-distance 1 1 [
     ask neighbors4 [
       if to-dig? [
-        set pcolor green
-        ask turtles-here [
-          set color red
-          set find-to-dig? true
+        let x pxcor let y pycor
+        ask neighbors4 [
+          ask turtles-here [
+            set found-to-dig? true
+          ]
         ]
       ]
     ]
   ]
+end
 
-  if find-to-dig? [
-    open-hole
+to open-to-dig
+  set time-to-start-dig time-to-start-dig - 1
+  if time-to-start-dig = 0 [
+    ask patch-ahead 1 [
+       set to-dig? true
+    ]
+    set color yellow
+    set time-to-start-dig random 5
   ]
 end
 
-to open-hole
-  set carrying? true
+to dig
+  ;set carrying? true
+  ;set color orange
+  set on-top? false
+  ask patch-here [
+    set dug? true
+    set pcolor dug-color
+  ]
+  ask patch-ahead 1 [
+    set to-dig? true
+  ]
 end
 
-to dig
+to back-to-nest
+
+end
+
+to found-nest
 
 end
 @#$#@#$#@
