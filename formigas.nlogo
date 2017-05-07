@@ -99,7 +99,7 @@ to wiggle
     ]
     fd ants-stride
   ]
-  set time-direction time-direction - 1
+  fd ants-stride
 end
 
 to move-horizontaly
