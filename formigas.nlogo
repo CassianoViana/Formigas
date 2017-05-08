@@ -7,25 +7,27 @@ globals [
   ants-stride
   ground-top
   max-ticks
+  world-size
 ]
 
 patches-own [ ground? to-dig? dug? ]
-turtles-own [ on-top? time-direction carrying? found-to-dig? time-to-start-dig ]
+turtles-own [ time-direction carrying? time-to-start-dig ]
 breed [ ants ant ] ;; turtles that are ants
 
 to setup
   clear-all
   set sky-color blue
   set ground-color brown
-  set dug-color 33
-  set to-dig-color 46
+  set dug-color 34
+  set to-dig-color 33
   set ants-num 10
   set ants-stride 0.3
   set ground-top 2
   set max-ticks 10000
 	setup-ground
   setup-ants
-	reset-ticks	
+  set world-size 16
+	reset-ticks
 end
 
 to setup-ground
@@ -44,7 +46,7 @@ end
 to set-to-dig
   set to-dig? false
   if ground? [
-    set to-dig? ifelse-value ( random 100 <= 2 ) [true] [false]
+    set to-dig? ifelse-value ( random 10 <= 2 ) [true] [false]
   ]
 end
 
@@ -58,102 +60,170 @@ to setup-ants
   add-ants-on-ground-top
   set-default-shape turtles "bug"
   ask turtles [
-    set found-to-dig? false
     set carrying? false
     set time-to-start-dig random 100
+    set pen-size 5
   ]
 end
 
 to add-ants-on-ground-top
   create-turtles ants-num
-  [ set on-top? true
-    set size 2
+  [ set size 2
     set color black
     setxy random-xcor ground-top ]
 end
 
+;--------------------------------------
+
 to go
-  ; if ticks >= max-ticks [stop]
   ask turtles [ move ]
   tick
 end
 
 to move
-  if on-top? [
-    move-horizontaly
-  ]
   ifelse not carrying? [
-    search-to-dig
-    ifelse found-to-dig? [ dig ][ open-to-dig ]
+    let found? search-to-dig
+    ifelse found? [ dig ][ open-hole ]
   ][
     back-to-nest
   ]
-  wiggle
+  move-across-earth
 end
 
-to wiggle
-  if pcolor = dug-color or on-top? [
-    if not on-top? [
-      rt random 30
-      lt random 30
-    ]
-    fd ants-stride
-  ]
+;-----------------------
+
+to dig
+  face-dig
   fd ants-stride
-end
-
-to move-horizontaly
-  if (time-direction = 0) [
-    set heading ifelse-value (random 2 < 1) [90][270]
-    set time-direction random 50
+  set carrying? true
+  ask patch-here [
+    set dug? true
+    set to-dig? false
   ]
+  set color orange
 end
 
-to search-to-dig
-  ask patch-at-heading-and-distance 1 1 [
-    ask neighbors4 [
-      if to-dig? [
-        let x pxcor let y pycor
-        ask neighbors4 [
-          ask turtles-here [
-            set found-to-dig? true
-          ]
-        ]
-      ]
-    ]
-  ]
-end
-
-to open-to-dig
+to open-hole
   set time-to-start-dig time-to-start-dig - 1
   if time-to-start-dig = 0 [
     ask patch-ahead 1 [
-       set to-dig? true
+      ask neighbors4 [
+        if pcolor = ground-color [
+          set to-dig? true
+        ]
+      ]
     ]
     set color yellow
     set time-to-start-dig random 5
   ]
 end
 
-to dig
-  ;set carrying? true
-  ;set color orange
-  set on-top? false
-  ask patch-here [
-    set dug? true
-    set pcolor dug-color
-  ]
-  ask patch-ahead 1 [
-    set to-dig? true
-  ]
-end
-
 to back-to-nest
+  face-dug
+  if on-top [
+    set carrying? false
+  ]
+  set color yellow
+end
+;--------------------
 
+to-report search-to-dig
+  ifelse on-top [
+    move-horizontaly
+  ][
+    wiggle
+  ]
+  report check-if-to-dig
 end
 
-to found-nest
+to move-across-earth
+  if next-patch-out-of-word [ rt 180 ]
+  if next-patch-is-sky [
+    horizontalize-movement
+  ]
+  fd ants-stride
+end
 
+;--------------------------------------
+
+to-report on-top
+  ifelse pcolor = sky-color [ report true ][ report false]
+end
+
+to move-horizontaly
+  if time-direction = 0 [
+    random-direction-horizontaly
+    set time-direction random 50
+  ]
+end
+
+to wiggle
+  rt random 30
+  lt random 30
+end
+
+to-report check-if-to-dig
+  let dig-state false
+  ask patch-ahead 1 [
+    ask neighbors [
+      if to-dig? [
+        set dig-state true
+      ]
+    ]
+  ]
+  report dig-state
+end
+
+to face-dig
+  ask patch-ahead 1 [
+    ask neighbors [
+      if to-dig? [
+        let x pxcor let y pycor
+        ask neighbors [ ask turtles-here [ facexy x y ] ]
+      ]
+    ]
+  ]
+end
+
+to face-dug
+  ask patch-ahead 1 [
+    ask neighbors [
+      if dug? [
+        let x pxcor let y pycor
+        ask neighbors [ ask turtles-here [ facexy x y ] ]
+      ]
+    ]
+  ]
+end
+
+to-report next-patch-out-of-word
+  let out false
+  ask patch-ahead 1 [
+    if pxcor = world-size [ set out true ]
+    if pxcor = world-size * -1 [ set out true ]
+    if pycor = world-size [ set out true ]
+    if pycor = world-size * -1 [ set out true ]
+  ]
+  report out
+end
+
+to-report next-patch-is-sky
+  let is-sky false
+  ask patch-ahead 1 [
+   let num-sky-neighbors count neighbors with [ pcolor = sky-color ]
+   set is-sky (num-sky-neighbors = 8)
+  ]
+  report is-sky
+end
+
+;---------------------------------------
+
+to random-direction-horizontaly
+  set heading ifelse-value (random 2 < 1) [90][270]
+end
+
+to horizontalize-movement
+  set heading ifelse-value (random 2 = 1) [90][270]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
