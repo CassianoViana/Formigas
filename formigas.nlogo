@@ -11,7 +11,7 @@ globals [
 ]
 
 patches-own [ ground? ]
-turtles-own [ time-direction carrying? time-to-start-dig ]
+turtles-own [ time-direction carrying? time-to-start-dig angle-change-little-bit-direction count-steps ]
 breed [ ants ant ] ;; turtles that are ants
 
 to setup
@@ -20,7 +20,7 @@ to setup
   set ground-color brown
   set dug-color 37
   set dig-color 33
-  set ants-num 4
+  set ants-num 1
   set ants-stride 1
   set ground-top 2
   set max-ticks 10000
@@ -97,7 +97,7 @@ to dig
 end
 
 to down
-  set heading 180
+  ;set heading 180
   ask patch-ahead 1 [ set pcolor dug-color ]
   fd 1
 end
@@ -115,7 +115,7 @@ to move-horizontaly
   set heading 0
 end
 
-to wiggle
+to change-little-bit-direction
   rt random 30
   lt random 30
 end
@@ -123,9 +123,13 @@ end
 to-report can-down
   let can false
   let nextout next-patch-out-of-word
-  set heading 180
+  if moved-enough [
+    set heading 180
+  ]
+  change-little-bit-direction
   ask patch-ahead 1 [
-    set can (pcolor = dig-color or pcolor = dug-color) and not nextout
+    ;set can (pcolor = dig-color or pcolor = dug-color) and not nextout
+    set can not nextout and pcolor != sky-color
   ]
   report can
 end
@@ -137,6 +141,16 @@ to-report can-up
     set can pcolor = dug-color or pcolor = sky-color
   ]
   report can
+end
+
+to-report moved-enough
+  set count-steps count-steps - 1
+  let moved false
+  if count-steps = 0 [
+    set moved true
+    set count-steps 10
+  ]
+  report moved
 end
 
 to-report next-patch-out-of-word
