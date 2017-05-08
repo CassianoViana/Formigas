@@ -2,7 +2,7 @@ globals [
   sky-color
   ground-color
   dug-color
-  to-dig-color
+  dig-color
   ants-num
   ants-stride
   ground-top
@@ -10,7 +10,7 @@ globals [
   world-size
 ]
 
-patches-own [ ground? to-dig? dug? ]
+patches-own [ ground? ]
 turtles-own [ time-direction carrying? time-to-start-dig ]
 breed [ ants ant ] ;; turtles that are ants
 
@@ -18,10 +18,10 @@ to setup
   clear-all
   set sky-color blue
   set ground-color brown
-  set dug-color 34
-  set to-dig-color 33
-  set ants-num 10
-  set ants-stride 0.3
+  set dug-color 37
+  set dig-color 33
+  set ants-num 4
+  set ants-stride 1
   set ground-top 2
   set max-ticks 10000
 	setup-ground
@@ -33,27 +33,18 @@ end
 to setup-ground
   ask patches [
     set-ground
-    set-to-dig
     colorize-sky-and-ground
   ]
 end
 
 to set-ground
   set ground? ifelse-value ( pycor < ground-top ) [true] [false]
-  set dug? false
-end
-
-to set-to-dig
-  set to-dig? false
-  if ground? [
-    set to-dig? ifelse-value ( random 10 <= 2 ) [true] [false]
-  ]
 end
 
 to colorize-sky-and-ground
   ifelse ( ground? = false )
   [ set pcolor sky-color ]
-  [ set pcolor ifelse-value ( ground? and to-dig? ) [to-dig-color] [ground-color] ]
+  [ set pcolor ground-color ]
 end
 
 to setup-ants
@@ -61,8 +52,6 @@ to setup-ants
   set-default-shape turtles "bug"
   ask turtles [
     set carrying? false
-    set time-to-start-dig random 100
-    set pen-size 5
   ]
 end
 
@@ -81,80 +70,49 @@ to go
 end
 
 to move
-  ifelse not carrying? [
-    let found? search-to-dig
-    ifelse found? [ dig ][ open-hole ]
-  ][
-    back-to-nest
+  if not carrying? [
+    if can-down [
+      down
+    ]
+    if not can-down [
+      dig
+    ]
   ]
-  move-across-earth
-end
-
-;-----------------------
-
-to dig
-  face-dig
-  fd ants-stride
-  set carrying? true
-  ask patch-here [
-    set dug? true
-    set to-dig? false
-  ]
-  set color orange
-end
-
-to open-hole
-  set time-to-start-dig time-to-start-dig - 1
-  if time-to-start-dig = 0 [
-    ask patch-ahead 1 [
-      ask neighbors4 [
-        if pcolor = ground-color [
-          set to-dig? true
-        ]
+  if carrying? [
+    if can-up [
+      up
+      if on-top [
+        set carrying? false
       ]
     ]
-    set color yellow
-    set time-to-start-dig random 5
   ]
 end
 
-to back-to-nest
-  face-dug
-  if on-top [
-    set carrying? false
+to dig
+  ask patch-ahead 1 [
+    set pcolor dig-color
   ]
-  set color yellow
-end
-;--------------------
-
-to-report search-to-dig
-  ifelse on-top [
-    move-horizontaly
-  ][
-    wiggle
-  ]
-  report check-if-to-dig
+  fd 1
+  set carrying? true
 end
 
-to move-across-earth
-  if next-patch-out-of-word [ rt 180 ]
-  if next-patch-is-sky [
-    horizontalize-movement
-  ]
-  fd ants-stride
+to down
+  set heading 180
+  ask patch-ahead 1 [ set pcolor dug-color ]
+  fd 1
 end
 
-;--------------------------------------
+to up
+  set heading 0
+  fd 1
+end
 
 to-report on-top
   ifelse pcolor = sky-color [ report true ][ report false]
 end
 
 to move-horizontaly
-  if time-direction = 0 [
-    random-direction-horizontaly
-    set time-direction random 50
-  ]
+  set heading 0
 end
 
 to wiggle
@@ -162,78 +120,43 @@ to wiggle
   lt random 30
 end
 
-to-report check-if-to-dig
-  let dig-state false
+to-report can-down
+  let can false
+  let nextout next-patch-out-of-word
+  set heading 180
   ask patch-ahead 1 [
-    ask neighbors [
-      if to-dig? [
-        set dig-state true
-      ]
-    ]
+    set can (pcolor = dig-color or pcolor = dug-color) and not nextout
   ]
-  report dig-state
+  report can
 end
 
-to face-dig
+to-report can-up
+  let can false
+  set heading 0
   ask patch-ahead 1 [
-    ask neighbors [
-      if to-dig? [
-        let x pxcor let y pycor
-        ask neighbors [ ask turtles-here [ facexy x y ] ]
-      ]
-    ]
+    set can pcolor = dug-color or pcolor = sky-color
   ]
-end
-
-to face-dug
-  ask patch-ahead 1 [
-    ask neighbors [
-      if dug? [
-        let x pxcor let y pycor
-        ask neighbors [ ask turtles-here [ facexy x y ] ]
-      ]
-    ]
-  ]
+  report can
 end
 
 to-report next-patch-out-of-word
   let out false
   ask patch-ahead 1 [
-    if pxcor = world-size [ set out true ]
-    if pxcor = world-size * -1 [ set out true ]
-    if pycor = world-size [ set out true ]
-    if pycor = world-size * -1 [ set out true ]
+    set out
+    pxcor = world-size or pxcor = world-size * -1 or
+    pycor = world-size or pycor = world-size * -1
   ]
   report out
-end
-
-to-report next-patch-is-sky
-  let is-sky false
-  ask patch-ahead 1 [
-   let num-sky-neighbors count neighbors with [ pcolor = sky-color ]
-   set is-sky (num-sky-neighbors = 8)
-  ]
-  report is-sky
-end
-
-;---------------------------------------
-
-to random-direction-horizontaly
-  set heading ifelse-value (random 2 < 1) [90][270]
-end
-
-to horizontalize-movement
-  set heading ifelse-value (random 2 = 1) [90][270]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
-10
-647
-448
+-42
+752
+501
 -1
 -1
-13.0
+16.2
 1
 10
 1
